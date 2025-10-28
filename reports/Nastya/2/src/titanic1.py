@@ -4,39 +4,47 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
-# Загрузка локального CSV-файла
-df = pd.read_csv("california_housing.csv")  # Убедись, что файл лежит рядом с этим скриптом
 
-# Проверка и очистка данных
-df.dropna(subset=["median_house_value", "median_income"], inplace=True)
+df = pd.read_csv("california_housing.csv")
+df.dropna(inplace=True)
+df["ocean_proximity"] = df["ocean_proximity"].astype("category").cat.codes
 
-# Выбор признака и целевой переменной
-X = df[["median_income"]]
+
 y = df["median_house_value"]
 
-# Разделение на обучающую и тестовую выборки
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Обучение модели
-model = LinearRegression()
-model.fit(X_train, y_train)
+X_single = df[["median_income"]]
+X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(X_single, y, test_size=0.2, random_state=42)
+model_single = LinearRegression()
+model_single.fit(X_train_s, y_train_s)
+y_pred_s = model_single.predict(X_test_s)
+mse_s = mean_squared_error(y_test_s, y_pred_s)
+r2_s = r2_score(y_test_s, y_pred_s)
 
-# Предсказания
-y_pred = model.predict(X_test)
 
-# Метрики
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-print(f"MSE: {mse:.2f}")
-print(f"R²: {r2:.2f}")
+X_multi = df.drop(columns=["median_house_value"])
+X_train_m, X_test_m, y_train_m, y_test_m = train_test_split(X_multi, y, test_size=0.2, random_state=42)
+model_multi = LinearRegression()
+model_multi.fit(X_train_m, y_train_m)
+y_pred_m = model_multi.predict(X_test_m)
+mse_m = mean_squared_error(y_test_m, y_pred_m)
+r2_m = r2_score(y_test_m, y_pred_m)
 
-# Визуализация
+
+print("Однопараметрическая модель:")
+print(f"  MSE: {mse_s:.2f}")
+print(f"  R²: {r2_s:.2f}")
+print("\nМногопараметрическая модель:")
+print(f"  MSE: {mse_m:.2f}")
+print(f"  R²: {r2_m:.2f}")
+
+
 plt.figure(figsize=(10, 6))
-plt.scatter(X_test, y_test, alpha=0.5, label="Фактические значения")
-plt.plot(X_test, y_pred, color="red", label="Линия регрессии")
+plt.scatter(X_test_s, y_test_s, alpha=0.3, label="Фактические значения")
+plt.plot(X_test_s, y_pred_s, color="red", label="Линия регрессии")
 plt.xlabel("Median Income")
 plt.ylabel("Median House Value")
-plt.title("Доход vs Стоимость жилья")
+plt.title("Однопараметрическая регрессия: Доход vs Стоимость жилья")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
