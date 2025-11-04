@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score
 import pandas as pd
+import matplotlib.pyplot as plt
 
 columns = ["buying","maint","doors","persons","lug_boot","safety","class"]
 df = pd.read_csv("car_evaluation.csv", names=columns)
@@ -54,6 +55,7 @@ class MLP_1hidden(nn.Module):
 def train_model(model, X_train, y_train, X_test, y_test, epochs=50):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
+    losses = []
 
     for epoch in range(epochs):
         model.train()
@@ -64,6 +66,8 @@ def train_model(model, X_train, y_train, X_test, y_test, epochs=50):
         loss.backward()
         optimizer.step()
 
+        losses.append(loss.item())
+
     model.eval()
     with torch.no_grad():
         y_pred_test = model(X_test)
@@ -71,13 +75,22 @@ def train_model(model, X_train, y_train, X_test, y_test, epochs=50):
 
     acc = accuracy_score(y_test, y_pred_classes)
     f1 = f1_score(y_test, y_pred_classes, average="weighted")
-    return acc, f1
+    return acc, f1, losses
 
 modelA = MLP_2hidden()
-accA, f1A = train_model(modelA, X_train, y_train, X_test, y_test)
+accA, f1A, lossesA = train_model(modelA, X_train, y_train, X_test, y_test, epochs=150)
 
 modelB = MLP_1hidden()
-accB, f1B = train_model(modelB, X_train, y_train, X_test, y_test)
+accB, f1B, lossesB = train_model(modelB, X_train, y_train, X_test, y_test, epochs=150)
 
 print("2 скрытых слоя (16→8): Accuracy =", round(accA, 4), "F1 =", round(f1A, 4))
 print("1 скрытый слой (24): Accuracy =", round(accB, 4), "F1 =", round(f1B, 4))
+
+plt.plot(lossesA, label="2 скрытых слоя (16→8)")
+plt.plot(lossesB, label="1 скрытый слой (24)")
+plt.xlabel("Эпоха")
+plt.ylabel("Loss")
+plt.title("Изменение ошибки при обучении (100 эпох)")
+plt.legend()
+plt.show()
+
