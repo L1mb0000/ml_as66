@@ -23,8 +23,6 @@ from sklearn.metrics import (
     f1_score,
     precision_score
 )
-
-# Параметр: показывать окно (True) или только сохранять (False)
 SHOW_PLOT = False
 OUTFILE = "comparison_adult_clean.png"
 
