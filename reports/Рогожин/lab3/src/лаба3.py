@@ -28,7 +28,6 @@ from sklearn.metrics import (
 SHOW_PLOT = False
 OUTFILE = "comparison_adult_clean.png"
 
-# --- Загрузка данных (как у тебя) ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(script_dir, "adult.csv")
 df = pd.read_csv(csv_path, sep=None, engine="python")  # автоопределение sep
@@ -125,11 +124,10 @@ for idx, name in enumerate(model_names):
     ax_pr.set_title(f"PR curve — AUC = {res['pr_auc']:.3f}", fontsize=10)
     ax_pr.tick_params(labelsize=tick_fontsize)
 
-    # Confusion matrix (counts + проценты)
+    # Confusion matrix
     ax_cm = fig.add_subplot(gs[2, idx])
     cm = res["cm"]
     cm_sum = cm.sum()
-    # percent matrix relative to true labels (rows)
     row_sums = cm.sum(axis=1, keepdims=True)
     with np.errstate(divide='ignore', invalid='ignore'):
         cm_pct = (cm / row_sums) * 100
