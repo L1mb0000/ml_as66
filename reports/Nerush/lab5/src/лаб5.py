@@ -8,19 +8,16 @@ import pandas as pd
 def target_function(x, a=0.2, b=0.4, c=0.09, d=0.4):
     return a * torch.cos(b * x) + c * torch.sin(d * x)
 
-# Параметры варианта
 a, b, c, d = 0.2, 0.4, 0.09, 0.4
 input_size = 6
 hidden_size = 2
 num_samples = 200
 train_ratio = 0.8
 
-# Входы: 6 признаков — степени x
 x = torch.linspace(0, 10, num_samples).reshape(-1, 1)
 X = torch.cat([x ** i for i in range(1, input_size + 1)], dim=1)
 y = target_function(x, a, b, c, d)
 
-# Train/Test split
 split_idx = int(num_samples * train_ratio)
 X_train, X_test = X[:split_idx], X[split_idx:]
 y_train, y_test = y[:split_idx], y[split_idx:]
