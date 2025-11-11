@@ -26,27 +26,24 @@ X_train, X_test = X[:split_idx], X[split_idx:]
 y_train, y_test = y[:split_idx], y[split_idx:]
 
 print("Данные сгенерированы для функции y = a*cos(bx) + c*sin(dx)")
+print(f"Параметры: a={a}, b={b}, c={c}, d={d}")
 print(f"Размер обучающей выборки: {X_train.shape}, тестовой: {X_test.shape}")
 
-# 2. Архитектура РНС Элмана
-class ElmanRNN(nn.Module):
+# 2. Архитектура ИНС
+class NonlinearRegressor(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
-        self.hidden_dim = hidden_dim
-        # RNN с tanh внутри (ограничение PyTorch)
-        self.rnn = nn.RNN(input_dim, hidden_dim, nonlinearity="tanh", batch_first=True)
-        self.sigmoid = nn.Sigmoid() 
-        self.fc = nn.Linear(hidden_dim, 1)
+        self.hidden = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.Sigmoid()
+        )
+        self.output = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
-        # РНС ожидает входы в формате [batch, seq, features]
-        x = x.unsqueeze(1)
-        out, _ = self.rnn(x)
-        out = self.sigmoid(out[:, -1, :])
-        out = self.fc(out)               
-        return out
+        x = self.hidden(x)
+        return self.output(x)
 
-model = ElmanRNN(input_size, hidden_size)
+model = NonlinearRegressor(input_size, hidden_size)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 
@@ -63,25 +60,17 @@ for epoch in range(epochs):
     optimizer.step()
     losses.append(loss.item())
 
-print("Обучение завершено. Минимальная ошибка:", min(losses))
+print("\nОбучение завершено")
+print(f"Минимальная ошибка достигнута при a={a}, финальный MSE={min(losses):.6f}")
 
-# 4. График ошибки по эпохам
-plt.figure(figsize=(10, 4))
-plt.plot(losses)
-plt.title("График изменения ошибки по эпохам (РНС Элмана)")
-plt.xlabel("Эпоха")
-plt.ylabel("MSE")
-plt.grid(True)
-plt.show()
-
-# 5. График прогнозируемой функции на обучающем участке
+# 4. График прогнозируемой функции на обучающем участке
 model.eval()
 with torch.no_grad():
     y_train_pred = model(X_train)
 
 plt.figure(figsize=(10, 4))
 plt.plot(x[:split_idx], y_train, label="Эталон")
-plt.plot(x[:split_idx], y_train_pred, label="Прогноз РНС Элмана")
+plt.plot(x[:split_idx], y_train_pred, label="Прогноз")
 plt.title("Прогнозируемая функция на обучающем участке")
 plt.xlabel("x")
 plt.ylabel("y")
@@ -89,7 +78,7 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# 6. Таблица результатов обучения
+# 5. Результаты обучения: таблица и график ошибки
 train_table = pd.DataFrame({
     "Эталонное значение": y_train.squeeze().numpy(),
     "Полученное значение": y_train_pred.squeeze().numpy(),
@@ -98,7 +87,15 @@ train_table = pd.DataFrame({
 print("\nРезультаты обучения (первые строки):")
 print(train_table.head())
 
-# 7. Таблица результатов прогнозирования
+plt.figure(figsize=(10, 4))
+plt.plot(losses)
+plt.title("График изменения ошибки по эпохам")
+plt.xlabel("Эпоха")
+plt.ylabel("MSE")
+plt.grid(True)
+plt.show()
+
+# 6. Результаты прогнозирования
 with torch.no_grad():
     y_test_pred = model(X_test)
     test_table = pd.DataFrame({
