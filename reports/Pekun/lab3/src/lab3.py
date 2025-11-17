@@ -9,8 +9,8 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from sklearn.decomposition import PCA
 
-# === 1. Загрузка данных ===
-data_path = r"/ml_as66/reports/Pekun/lab3/src/seeds_dataset.txt"
+# === 1. Загрузка данных ====
+data_path = "E:/БРГТУ 3 КУРС/ОМО/1/ml_as66/reports/Pekun/lab3/src/seeds_dataset.txt"
 
 columns = [
     "area", "perimeter", "compactness", "length", "width",
