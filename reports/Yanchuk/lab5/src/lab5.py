@@ -96,7 +96,6 @@ def train(X_train, y_train, W1, b1, W2, b2, epochs, lr):
     return W1, b1, W2, b2, loss_history
 
 def main():
-    # Генерация данных на большом интервале
     x_vals, y_vals = generate_series(a, b, c, d, x_min=-50, x_max=50)
 
     X, Y = make_supervised_from_series(y_vals, window_size)
@@ -110,8 +109,6 @@ def main():
     y_train_pred = predict(X_train, W1, b1, W2, b2)
     y_test_pred = predict(X_test, W1, b1, W2, b2)
 
-    # --- стандартные графики ---
-    # 1. График ошибки
     plt.figure(figsize=(8, 4))
     plt.plot(loss_history, color="tab:blue", label="MSE")
     plt.title("График изменения ошибки (MSE) по эпохам")
@@ -123,7 +120,6 @@ def main():
     plt.savefig(os.path.join(OUT_DIR, "loss_curve.png"), dpi=150)
     plt.show()
 
-    # 2. Эталонная функция
     plt.figure(figsize=(10, 4))
     plt.plot(x_vals, y_vals, lw=2, color="tab:green", label="Эталонная функция")
     plt.title("Эталонная функция (плотная дискретизация)")
@@ -135,7 +131,6 @@ def main():
     plt.savefig(os.path.join(OUT_DIR, "true_function_dense.png"), dpi=150)
     plt.show()
 
-    # 3. Прогноз на обучающем и тестовом интервале
     plt.figure(figsize=(10, 5))
     plt.plot(range(len(y_vals)), y_vals, lw=2, label="Эталонная функция")
     plt.plot(range(window_size, window_size + len(y_train_pred)),
