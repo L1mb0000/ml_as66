@@ -12,7 +12,7 @@ n_samples = 1000
 
 def target_function(X):
     x1, x2 = X[:, 0], X[:, 1]
-    return a * np.cos(np.pi * b * x1) + c * np.sin(np.pi * d * x2)
+    return a * np.cos(b * x1) + c * np.sin(d * x2)
 
 np.random.seed(42)
 periods_x1 = 3
