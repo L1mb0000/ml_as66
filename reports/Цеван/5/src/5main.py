@@ -1,183 +1,158 @@
 ﻿import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+import torch.optim as optim
+from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 
-# Fix random seeds
-np.random.seed(42)
-torch.manual_seed(42)
+a = 0.1
+b = 0.1
+c = 0.05
+d = 0.1
+n_inputs = 6
+n_hidden = 2
 
-# Variant 12 parameters
-a = 0.4
-b = 0.6
-c = 0.06
-d = 0.6
+def target_function(x):
+    return a * np.cos(b * x) + c * np.sin(d * x)
 
-INPUT_SIZE = 10
-HIDDEN_SIZE = 4
+x = np.linspace(-100, 300, 4000)
+y = target_function(x)
 
-def generate_series(N=800):
-    """
-    Example nonlinear model for time series.
-    Replace the formula inside the loop with your exact lab formula
-    if you have a different one.
-    """
-    y = np.zeros(N, dtype=float)
-    u = np.random.uniform(-1.0, 1.0, size=N)
+def create_dataset(data, n_inputs):
+    X, Y = [], []
+    for i in range(len(data) - n_inputs):
+        X.append(data[i:i + n_inputs])
+        Y.append(data[i + n_inputs])
+    return np.array(X), np.array(Y)
 
-    y[0] = 0.0
-    y[1] = 0.0
+scaler_x = MinMaxScaler()
+scaler_y = MinMaxScaler()
 
-    for k in range(2, N):
-        y[k] = (
-            a * y[k-1] / (1.0 + y[k-1]**2)
-            + b * y[k-2]
-            + c * np.sin(u[k-1])
-            + d * u[k-2]
-        )
-    return y
+x_scaled = scaler_x.fit_transform(x.reshape(-1, 1)).flatten()
+y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
 
-def make_dataset(series, window=INPUT_SIZE):
-    X, T = [], []
-    for k in range(window, len(series)):
-        X.append(series[k-window:k])
-        T.append(series[k])
-    X = np.array(X, dtype=np.float32)
-    T = np.array(T, dtype=np.float32).reshape(-1, 1)
-    return X, T
+X, Y = create_dataset(y_scaled, n_inputs)
 
-def smooth(y, window=7):
-    if window <= 1:
-        return y
-    kernel = np.ones(window, dtype=float) / float(window)
-    return np.convolve(y, kernel, mode="same")
+start_train = np.where(x >= 50)[0][0] - n_inputs
+end_train = np.where(x <= 100)[0][-1] - n_inputs
+start_test = np.where(x >= 100)[0][0] - n_inputs
+end_test = np.where(x <= 150)[0][-1] - n_inputs
 
-# ----- data generation -----
-series = generate_series(N=800)
-X, T = make_dataset(series, window=INPUT_SIZE)
+X_train, X_test = X[start_train:end_train], X[start_test:end_test]
+Y_train, Y_test = Y[start_train:end_train], Y[start_test:end_test]
 
-train_size = int(0.7 * len(X))
-X_train, T_train = X[:train_size], T[:train_size]
-X_test,  T_test  = X[train_size:], T[train_size:]
+X_train = torch.FloatTensor(X_train)
+Y_train = torch.FloatTensor(Y_train).reshape(-1, 1)
+X_test = torch.FloatTensor(X_test)
+Y_test = torch.FloatTensor(Y_test).reshape(-1, 1)
 
-X_train_t = torch.from_numpy(X_train)
-T_train_t = torch.from_numpy(T_train)
-X_test_t  = torch.from_numpy(X_test)
-T_test_t  = torch.from_numpy(T_test)
-
-# ----- neural network definition -----
-class Net(nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super().__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, 1)
+class NeuralNetwork(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(NeuralNetwork, self).__init__()
+        self.hidden = nn.Linear(input_size, hidden_size)
+        self.output = nn.Linear(hidden_size, output_size)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = self.sigmoid(self.fc1(x))
-        x = self.fc2(x)
+        x = self.sigmoid(self.hidden(x))
+        x = self.output(x)
         return x
 
-net = Net(INPUT_SIZE, HIDDEN_SIZE)
+model = NeuralNetwork(n_inputs, n_hidden, 1)
+
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-# ----- training -----
+train_losses = []
+test_losses = []
 epochs = 500
-loss_history = []
 
-for _ in range(epochs):
-    net.train()
+for epoch in range(epochs):
+    model.train()
     optimizer.zero_grad()
-    outputs = net(X_train_t)
-    loss = criterion(outputs, T_train_t)
-    loss.backward()
+    outputs = model(X_train)
+    train_loss = criterion(outputs, Y_train)
+    train_loss.backward()
     optimizer.step()
-    loss_history.append(float(loss.item()))
 
-# ----- prediction -----
-net.eval()
+    model.eval()
+    with torch.no_grad():
+        test_outputs = model(X_test)
+        test_loss = criterion(test_outputs, Y_test)
+
+    train_losses.append(train_loss.item())
+    test_losses.append(test_loss.item())
+
+    if epoch % 100 == 0:
+        print(f'Epoch [{epoch}/{epochs}], Train Loss: {train_loss.item():.6f}, Test Loss: {test_loss.item():.6f}')
+
+model.eval()
 with torch.no_grad():
-    train_pred = net(X_train_t).numpy().flatten()
-    test_pred  = net(X_test_t).numpy().flatten()
+    train_predictions = model(X_train)
+    test_predictions = model(X_test)
 
-train_true = T_train.flatten()
-test_true  = T_test.flatten()
+Y_train_actual = scaler_y.inverse_transform(Y_train.numpy())
+train_predictions_actual = scaler_y.inverse_transform(train_predictions.numpy())
+Y_test_actual = scaler_y.inverse_transform(Y_test.numpy())
+test_predictions_actual = scaler_y.inverse_transform(test_predictions.numpy())
 
-train_residuals = train_pred - train_true
-test_residuals  = test_pred - test_true
+plt.figure(figsize=(20, 12))
 
-# ----- plots -----
+plt.subplot(2, 2, 1)
+x_train_plot = x[start_train + n_inputs:end_train + n_inputs]
+plt.plot(x_train_plot, Y_train_actual, 'b-', label='True', linewidth=1.5, alpha=0.8)
+plt.plot(x_train_plot, train_predictions_actual, 'r--', label='Prediction', linewidth=1.5)
+plt.title('Training interval (50–100)')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
 
-# 1. Training: smoothed true vs prediction
-plt.figure(figsize=(16, 8))
-plt.plot(smooth(train_true, 9), label="True (train, smooth)", linewidth=3)
-plt.plot(smooth(train_pred, 9), label="Prediction (train, smooth)", linewidth=3)
-plt.title("Training section: true vs prediction (smoothed)", fontsize=18)
-plt.xlabel("Sample index", fontsize=14)
-plt.ylabel("Value", fontsize=14)
-plt.legend(fontsize=14)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
+plt.subplot(2, 2, 2)
+plt.plot(train_losses, 'g-', label='Train loss', linewidth=1.5)
+plt.plot(test_losses, 'r-', label='Test loss', linewidth=1.5)
+plt.title('Loss curves')
+plt.xlabel('Epoch')
+plt.ylabel('MSE')
+plt.legend()
+plt.grid(True)
+plt.yscale('log')
+
+plt.subplot(2, 2, 3)
+x_test_plot = x[start_test + n_inputs:end_test + n_inputs]
+plt.plot(x_test_plot, Y_test_actual, 'b-', label='True', linewidth=1.5, alpha=0.8)
+plt.plot(x_test_plot, test_predictions_actual, 'r--', label='Prediction', linewidth=1.5)
+plt.title('Test interval (100–150)')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(2, 2, 4)
+plt.scatter(Y_test_actual, test_predictions_actual, s=20, alpha=0.6)
+y_min = min(Y_test_actual.min(), test_predictions_actual.min())
+y_max = max(Y_test_actual.max(), test_predictions_actual.max())
+plt.plot([y_min, y_max], [y_min, y_max], 'k--')
+plt.title('True vs Predicted')
+plt.xlabel('True')
+plt.ylabel('Predicted')
+plt.grid(True)
+
+plt.tight_layout(pad=3.0)
 plt.show()
 
-# 2. Test: smoothed true vs prediction
-plt.figure(figsize=(16, 8))
-plt.plot(smooth(test_true, 9), label="True (test, smooth)", linewidth=3)
-plt.plot(smooth(test_pred, 9), label="Prediction (test, smooth)", linewidth=3)
-plt.title("Test section: true vs prediction (smoothed)", fontsize=18)
-plt.xlabel("Sample index", fontsize=14)
-plt.ylabel("Value", fontsize=14)
-plt.legend(fontsize=14)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-
-# 3. Training loss (smoothed)
-plt.figure(figsize=(16, 6))
-plt.plot(smooth(np.array(loss_history), 15), linewidth=3)
-plt.title("Training loss (MSE, smoothed)", fontsize=18)
-plt.xlabel("Epoch", fontsize=14)
-plt.ylabel("MSE", fontsize=14)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-
-# 4. Residuals train
-plt.figure(figsize=(16, 6))
-plt.plot(train_residuals, linewidth=1.5)
-plt.title("Residuals on training set", fontsize=18)
-plt.xlabel("Sample index", fontsize=14)
-plt.ylabel("Error", fontsize=14)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-
-# 5. Residuals test
-plt.figure(figsize=(16, 6))
-plt.plot(test_residuals, linewidth=1.5)
-plt.title("Residuals on test set", fontsize=18)
-plt.xlabel("Sample index", fontsize=14)
-plt.ylabel("Error", fontsize=14)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-
-# ----- tables for report -----
-train_table = pd.DataFrame({
-    "True": train_true,
-    "Pred": train_pred,
-    "Error": train_residuals
+train_results = pd.DataFrame({
+    'True': Y_train_actual.flatten(),
+    'Predicted': train_predictions_actual.flatten(),
+    'Error': (Y_train_actual.flatten() - train_predictions_actual.flatten())
 })
 
-test_table = pd.DataFrame({
-    "True": test_true,
-    "Pred": test_pred,
-    "Error": test_residuals
+test_results = pd.DataFrame({
+    'True': Y_test_actual.flatten(),
+    'Predicted': test_predictions_actual.flatten(),
+    'Error': (Y_test_actual.flatten() - test_predictions_actual.flatten())
 })
 
-print("First 10 rows: TRAIN")
-print(train_table.head(10))
-print("\nFirst 10 rows: TEST")
-print(test_table.head(10))
+print(train_results.head(10))
+print(test_results.head(10))
