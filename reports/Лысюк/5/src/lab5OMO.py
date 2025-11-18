@@ -18,7 +18,7 @@ def target_function(x):
     return a * np.cos(b * x) + c * np.sin(d * x)
 
 
-x = np.linspace(0, 10, 1000)
+x = np.linspace(-100, 300, 4000)
 y = target_function(x)
 
 
@@ -38,9 +38,14 @@ y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
 
 X, Y = create_dataset(y_scaled, n_inputs)
 
-train_size = int(0.7 * len(X))
-X_train, X_test = X[:train_size], X[train_size:]
-Y_train, Y_test = Y[:train_size], Y[train_size:]
+# Определяем индексы для обучения (50-100) и теста (100-150)
+start_train = np.where(x >= 50)[0][0] - n_inputs
+end_train = np.where(x <= 100)[0][-1] - n_inputs
+start_test = np.where(x >= 100)[0][0] - n_inputs
+end_test = np.where(x <= 150)[0][-1] - n_inputs
+
+X_train, X_test = X[start_train:end_train], X[start_test:end_test]
+Y_train, Y_test = Y[start_train:end_train], Y[start_test:end_test]
 
 X_train = torch.FloatTensor(X_train)
 Y_train = torch.FloatTensor(Y_train).reshape(-1, 1)
@@ -68,9 +73,8 @@ optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 train_losses = []
 test_losses = []
-epochs = 2000
+epochs = 500
 
-print("Начало обучения...")
 for epoch in range(epochs):
     model.train()
     optimizer.zero_grad()
@@ -87,11 +91,9 @@ for epoch in range(epochs):
     train_losses.append(train_loss.item())
     test_losses.append(test_loss.item())
 
-    if epoch % 200 == 0:
+    if epoch % 100 == 0:
         print(
             f'Epoch [{epoch}/{epochs}], Train Loss: {train_loss.item():.6f}, Test Loss: {test_loss.item():.6f}')
-
-print("Обучение завершено!")
 
 model.eval()
 with torch.no_grad():
@@ -105,53 +107,81 @@ train_predictions_actual = scaler_y.inverse_transform(
 Y_test_actual = scaler_y.inverse_transform(Y_test.numpy())
 test_predictions_actual = scaler_y.inverse_transform(test_predictions.numpy())
 
-plt.figure(figsize=(15, 10))
+plt.figure(figsize=(20, 12))
 
 plt.subplot(2, 2, 1)
-x_train_plot = x[n_inputs:train_size + n_inputs]
+x_train_plot = x[start_train + n_inputs:end_train + n_inputs]
 plt.plot(x_train_plot, Y_train_actual, 'b-',
-         label='Эталонные значения', linewidth=2)
+         label='Эталонные значения', linewidth=1.5, alpha=0.8)
 plt.plot(x_train_plot, train_predictions_actual,
-         'r--', label='Прогноз ИНС', linewidth=2)
-plt.title('Прогнозируемая функция на участке обучения')
+         'r--', label='Прогноз ИНС', linewidth=1.5)
+plt.title('Прогнозируемая функция на участке обучения (50-100)', fontsize=12)
 plt.xlabel('x')
 plt.ylabel('y')
-plt.legend()
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
 plt.grid(True)
+plt.xlim(50, 100)
 
 plt.subplot(2, 2, 2)
-plt.plot(train_losses, 'g-', label='Ошибка обучения')
-plt.plot(test_losses, 'r-', label='Ошибка тестирования')
-plt.title('Изменение ошибки в процессе обучения')
+plt.plot(train_losses, 'g-', label='Ошибка обучения', linewidth=1.5)
+plt.plot(test_losses, 'r-', label='Ошибка тестирования', linewidth=1.5)
+plt.title('Изменение ошибки в процессе обучения', fontsize=12)
 plt.xlabel('Итерация')
 plt.ylabel('Ошибка MSE')
-plt.legend()
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
 plt.grid(True)
 plt.yscale('log')
+plt.xlim(0, 500)
 
 plt.subplot(2, 2, 3)
-x_test_plot = x[train_size + n_inputs:train_size +
-                n_inputs + len(Y_test_actual)]
+x_test_plot = x[start_test + n_inputs:end_test + n_inputs]
 plt.plot(x_test_plot, Y_test_actual, 'b-',
-         label='Эталонные значения', linewidth=2)
+         label='Эталонные значения', linewidth=1.5, alpha=0.8)
 plt.plot(x_test_plot, test_predictions_actual,
-         'r--', label='Прогноз ИНС', linewidth=2)
-plt.title('Результаты прогнозирования на тестовой выборке')
+         'r--', label='Прогноз ИНС', linewidth=1.5)
+plt.title('Результаты прогнозирования на тестовой выборке (100-150)', fontsize=12)
 plt.xlabel('x')
 plt.ylabel('y')
-plt.legend()
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
 plt.grid(True)
+plt.xlim(100, 150)
 
 plt.subplot(2, 2, 4)
-plt.scatter(Y_test_actual, test_predictions_actual, alpha=0.6)
-plt.plot([Y_test_actual.min(), Y_test_actual.max()], [
-         Y_test_actual.min(), Y_test_actual.max()], 'k--', lw=2)
-plt.title('Сравнение эталонных и прогнозируемых значений')
+plt.scatter(Y_test_actual, test_predictions_actual, alpha=0.6, s=20)
+y_min = min(Y_test_actual.min(), test_predictions_actual.min())
+y_max = max(Y_test_actual.max(), test_predictions_actual.max())
+plt.plot([y_min, y_max], [y_min, y_max], 'k--', lw=2)
+plt.title('Сравнение эталонных и прогнозируемых значений', fontsize=12)
 plt.xlabel('Эталонные значения')
 plt.ylabel('Прогнозируемые значения')
 plt.grid(True)
 
-plt.tight_layout()
+plt.tight_layout(pad=3.0)
+plt.show()
+
+plt.figure(figsize=(15, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(train_losses[:500], 'g-', label='Ошибка обучения', linewidth=1.5)
+plt.plot(test_losses[:500], 'r-', label='Ошибка тестирования', linewidth=1.5)
+plt.title('Детальный просмотр ошибок', fontsize=12)
+plt.xlabel('Итерация')
+plt.ylabel('Ошибка MSE')
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
+plt.grid(True)
+plt.yscale('log')
+
+plt.subplot(1, 2, 2)
+plt.plot(train_losses[400:], 'g-', label='Ошибка обучения', linewidth=1.5)
+plt.plot(test_losses[400:], 'r-', label='Ошибка тестирования', linewidth=1.5)
+plt.title('Ошибки на последних 100 итерациях', fontsize=12)
+plt.xlabel('Итерация')
+plt.ylabel('Ошибка MSE')
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
+plt.grid(True)
+plt.yscale('log')
+
+plt.tight_layout(pad=3.0)
 plt.show()
 
 train_results = pd.DataFrame({
@@ -187,13 +217,3 @@ print(
     f"Максимальная ошибка обучения: {np.max(np.abs(train_results['Отклонение'])):.6f}")
 print(
     f"Максимальная ошибка тестирования: {np.max(np.abs(test_results['Отклонение'])):.6f}")
-
-print("\n" + "="*60)
-print("ВЫВОДЫ:")
-print("="*60)
-print("1. Нейронная сеть успешно обучена для прогнозирования нелинейной функции.")
-print("2. Архитектура сети: входной слой - 6 нейронов, скрытый слой - 2 нейрона, выходной слой - 1 нейрон.")
-print("3. Использованы сигмоидная функция активации на скрытом слое и линейная на выходном слое.")
-print("4. Графики показывают хорошее соответствие прогнозируемых значений эталонным.")
-print("5. Ошибка на тестовой выборке свидетельствует о способности сети к обобщению.")
-print("6. Модель может быть использована для прогнозирования значений нелинейной функции.")
