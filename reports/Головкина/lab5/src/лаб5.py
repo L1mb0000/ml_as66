@@ -3,15 +3,16 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 a, b, c, d = 0.1, 0.1, 0.05, 0.1
 n_inputs = 2  
-n_hidden = 10  
+n_hidden = 12  
 n_samples = 1000
 
 def target_function(X):
     x1, x2 = X[:, 0], X[:, 1]
-    return a * np.cos( np.pi * b * x1) + c * np.sin( np.pi * d * x2)
+    return a * np.cos(np.pi * b * x1) + c * np.sin(np.pi * d * x2)
 
 np.random.seed(42)
 periods_x1 = 3
@@ -36,7 +37,7 @@ class SimpleMLP(nn.Module):
         super(SimpleMLP, self).__init__()
         self.hidden = nn.Linear(n_inputs, n_hidden)
         self.sigmoid = nn.Sigmoid()
-        self.output = nn.Linear(n_hidden, 1)  
+        self.output = nn.Linear(n_hidden, 1)  # Линейная активация на выходе
     
     def forward(self, x):
         x = self.sigmoid(self.hidden(x))
@@ -45,60 +46,67 @@ class SimpleMLP(nn.Module):
 model = SimpleMLP()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-n_epochs = 1000
+n_epochs = 1500
 
 losses = []
-print("Начало обучения...")
-
+print("Обучение модели...")
 for epoch in range(n_epochs):
     model.train()
     y_pred = model(X_train_tensor)
     loss = criterion(y_pred, y_train_tensor)
-    losses.append(loss.item())
     
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     
-    if epoch % 100 == 0:
-        print(f"Эпоха {epoch}, Loss: {loss.item():.6f}")
+    losses.append(loss.item())
+    
+    if epoch % 200 == 0:
+        print(f"Эпоха {epoch}, Ошибка: {loss.item():.6f}")
+
+print(f"Обучение завершено. Финальная ошибка: {losses[-1]:.6f}")
 
 plt.figure(figsize=(10, 4))
 plt.plot(losses)
-plt.xlabel("Эпоха")
-plt.ylabel("Ошибка (MSE)")
-plt.title("График изменения ошибки")
+plt.title('График обучения')
+plt.xlabel('Эпоха')
+plt.ylabel('Ошибка (MSE)')
 plt.grid(True)
 plt.show()
 
+print("\n" + "="*50)
+print("ТЕСТИРОВАНИЕ МОДЕЛИ")
+print("="*50)
+
 model.eval()
+
 with torch.no_grad():
     y_train_pred = model(X_train_tensor).numpy().flatten()
     y_test_pred = model(X_test_tensor).numpy().flatten()
 
-plt.figure(figsize=(15, 5))
+mse_test = mean_squared_error(y_test, y_test_pred)
+mae_test = mean_absolute_error(y_test, y_test_pred)
+r2_test = r2_score(y_test, y_test_pred)
 
-plt.subplot(1, 3, 1)
-plt.plot(y_train[:100], 'b-', label='Эталон', linewidth=2)
-plt.plot(y_train_pred[:100], 'r--', label='Прогноз', linewidth=1.5)
-plt.title('Обучающая выборка')
-plt.xlabel('Индекс')
-plt.ylabel('Значение')
-plt.legend()
-plt.grid(True)
+print(f"Метрики качества на тестовой выборке:")
+print(f"MSE: {mse_test:.8f}")
+print(f"MAE: {mae_test:.8f}")
+print(f"R²: {r2_test:.6f}")
 
-plt.subplot(1, 3, 2)
-plt.plot(y_test, 'b-', label='Эталон', linewidth=2)
+plt.figure(figsize=(15, 10))
+
+plt.subplot(2, 2, 1)
+plt.plot(y_test, 'b-', label='Эталон', linewidth=2, alpha=0.8)
 plt.plot(y_test_pred, 'r--', label='Прогноз', linewidth=1.5)
-plt.title('Тестовая выборка')
-plt.xlabel('Индекс')
+plt.title('Тестовая выборка: сравнение прогноза и эталона')
+plt.xlabel('Номер примера')
 plt.ylabel('Значение')
 plt.legend()
 plt.grid(True)
 
-plt.subplot(1, 3, 3)
+plt.subplot(2, 2, 4)
 x1_test = np.linspace(0, periods_x1 / b, 500)
-x2_fixed = np.mean(X[:, 1])
+x2_fixed = np.median(X[:, 1]) 
 X_periodic = np.column_stack([x1_test, np.full_like(x1_test, x2_fixed)])
 X_periodic_tensor = torch.tensor(X_periodic, dtype=torch.float32)
 
@@ -107,9 +115,9 @@ with torch.no_grad():
 
 y_periodic_true = target_function(X_periodic)
 
-plt.plot(x1_test, y_periodic_true, 'b-', label='Истинная', linewidth=2)
-plt.plot(x1_test, y_periodic_pred, 'r--', label='Прогноз', linewidth=1.5)
-plt.title('Проверка периодичности')
+plt.plot(x1_test, y_periodic_true, 'b-', label='Истинная функция', linewidth=2)
+plt.plot(x1_test, y_periodic_pred, 'r--', label='Прогноз модели', linewidth=1.5)
+plt.title('Проверка периодичности функции')
 plt.xlabel('x1')
 plt.ylabel('y')
 plt.legend()
@@ -118,22 +126,23 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+x1_extended = np.linspace(-5, 35, 800) 
+x2_fixed = np.median(X[:, 1])
+X_extended = np.column_stack([x1_extended, np.full_like(x1_extended, x2_fixed)])
+X_extended_tensor = torch.tensor(X_extended, dtype=torch.float32)
 
-mse_train = mean_squared_error(y_train, y_train_pred)
-mse_test = mean_squared_error(y_test, y_test_pred)
-mse_periodic = mean_squared_error(y_periodic_true, y_periodic_pred)
+with torch.no_grad():
+    y_extended_pred = model(X_extended_tensor).numpy().flatten()
 
-print("\nМЕТРИКИ КАЧЕСТВА:")
-print(f"MSE на обучении: {mse_train:.6f}")
-print(f"MSE на тесте: {mse_test:.6f}")
-print(f"MSE на полном периоде: {mse_periodic:.6f}")
-print(f"Финальная ошибка: {losses[-1]:.6f}")
+y_extended_true = target_function(X_extended)
 
-results_df = pd.DataFrame({
-    'x1': X_test[:, 0],
-    'x2': X_test[:, 1],
-    'Эталон': y_test,
-    'Прогноз': y_test_pred,
-    'Ошибка': y_test_pred - y_test
-})
+plt.figure(figsize=(12, 5))
+plt.plot(x1_extended, y_extended_true, 'b-', label='Истинная функция', linewidth=2)
+plt.plot(x1_extended, y_extended_pred, 'r--', label='Прогноз модели', linewidth=1.5)
+plt.axvspan(0, periods_x1 / b, alpha=0.2, color='green', label='Обучающий диапазон')
+plt.title('Тест экстраполяции: прогнозирование за пределами обучающих данных')
+plt.xlabel('x1')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True)
+plt.show()
