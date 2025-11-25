@@ -23,7 +23,7 @@ y_target = []
 for i in range(num_samples - window_size):
     X.append(y[i:i+window_size])
     y_target.append(y[i+window_size])
-X = torch.stack(X)              # [samples, window_size, 1]
+X = torch.stack(X)         
 y_target = torch.stack(y_target)
 
 split_idx = int(X.shape[0] * train_ratio)
@@ -43,8 +43,8 @@ class ElmanRNN(nn.Module):
         self.fc = nn.Linear(hidden_dim, 1)  
 
     def forward(self, x):
-        out, _ = self.rnn(x)               # [batch, seq_len, hidden_dim]
-        out = self.sigmoid(out[:, -1, :])  # берём последний шаг
+        out, _ = self.rnn(x)               
+        out = self.sigmoid(out[:, -1, :])  
         out = self.fc(out)                 
         return out
 
