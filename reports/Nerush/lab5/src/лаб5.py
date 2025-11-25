@@ -14,13 +14,16 @@ hidden_size = 2
 num_samples = 200
 train_ratio = 0.8
 
-x = torch.linspace(0, 10, num_samples).reshape(-1, 1)
-X = torch.cat([x ** i for i in range(1, input_size + 1)], dim=1)
+x = torch.linspace(0, 200, num_samples).reshape(-1, 1)
 y = target_function(x, a, b, c, d)
 
-split_idx = int(num_samples * train_ratio)
+X = torch.cat([y[i:num_samples - input_size + i] for i in range(input_size)], dim=1)
+y_target = y[input_size:] 
+
+split_idx = int(X.shape[0] * train_ratio)
 X_train, X_test = X[:split_idx], X[split_idx:]
-y_train, y_test = y[:split_idx], y[split_idx:]
+y_train, y_test = y_target[:split_idx], y_target[split_idx:]
+
 
 print("Данные сгенерированы для функции y = a*cos(bx) + c*sin(dx)")
 print(f"Параметры: a={a}, b={b}, c={c}, d={d}")
@@ -46,7 +49,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 # 3. Обучение модели
 losses = []
-epochs = 500
+epochs = 5000
 
 for epoch in range(epochs):
     model.train()
