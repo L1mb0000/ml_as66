@@ -37,16 +37,15 @@ print(f"Размер обучающей выборки: {X_train.shape}, тес�
 class ElmanRNN(nn.Module):
     def __init__(self, input_dim, hidden_dim):
         super().__init__()
-        self.hidden_dim = hidden_dim
         self.rnn = nn.RNN(input_dim, hidden_dim, nonlinearity="tanh", batch_first=True)
-        self.sigmoid = nn.Sigmoid()  
-        self.fc = nn.Linear(hidden_dim, 1)  
+        self.fc = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
-        out, _ = self.rnn(x)               
-        out = self.sigmoid(out[:, -1, :])  
-        out = self.fc(out)                 
+        out, _ = self.rnn(x)
+        out = out[:, -1, :]    
+        out = self.fc(out)       
         return out
+
 
 model = ElmanRNN(input_size, hidden_size)
 criterion = nn.MSELoss()
