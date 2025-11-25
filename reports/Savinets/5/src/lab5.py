@@ -5,7 +5,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import pandas as pd
 
-
+# Параметры
 b = 0.5
 c = 0.05
 d = 0.5
@@ -13,13 +13,13 @@ d = 0.5
 n_inputs = 8
 n_hidden = 3
 
-
+# Генерация временного ряда
 def generate_series(a, N=2000):
     i = np.arange(N)
     y = a * np.cos(b * i) + c * np.sin(d * i)
     return y
 
-
+# Формирование выборки
 def create_dataset(series, look_back=8):
     X, Y = [], []
     for i in range(look_back, len(series)):
@@ -27,8 +27,7 @@ def create_dataset(series, look_back=8):
         Y.append(series[i])
     return np.array(X, dtype=np.float32), np.array(Y, dtype=np.float32)
 
-
-# 3. MLP
+# Модель MLP
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(MLP, self).__init__()
@@ -40,19 +39,14 @@ class MLP(nn.Module):
         x = self.sigmoid(self.hidden(x))
         return self.output(x)
 
-
-# 4. Подбор a: от 0.1 до 0.5 с шагом 0.05
+# Подбор параметра a
 a_values = np.arange(0.1, 0.51, 0.05)
 best_a = None
 min_test_mse = float('inf')
 results = []
 
-print("🔍 Поиск оптимального a...")
-print("-" * 60)
-
 for a in a_values:
     y_full = generate_series(a, N=2000)
-
     X, Y = create_dataset(y_full, look_back=n_inputs)
     split = int(0.8 * len(X))
     X_train, X_test = X[:split], X[split:]
@@ -91,22 +85,11 @@ for a in a_values:
         best_losses = losses
         best_split_data = (X_train, Y_train, X_test, Y_test, pred_test)
 
-    print(f"a = {a:.2f} → Test MSE = {test_mse:.8f}")
+print(f"Оптимальное a = {best_a} (Test MSE = {min_test_mse:.8f})")
 
-print("-" * 60)
-print(f"✅ Оптимальное a = {best_a} (Test MSE = {min_test_mse:.8f})")
-
-
-# 5. Результаты для best_a
+# Результаты для best_a
 a = best_a
 X_train, Y_train, X_test, Y_test, pred_test = best_split_data
-
-# Обучение на лучших данных (ещё раз, чтобы получить предсказания на обучении)
-y_full = generate_series(a, N=2000)
-X, Y = create_dataset(y_full)
-split = int(0.8 * len(X))
-X_train, X_test = X[:split], X[split:]
-Y_train, Y_test = Y[:split], Y[split:]
 
 X_train_t = torch.tensor(X_train)
 Y_train_t = torch.tensor(Y_train).unsqueeze(1)
@@ -117,11 +100,14 @@ model = best_model
 with torch.no_grad():
     pred_train = model(X_train_t).numpy().flatten()
 
-# 6.1 График функции (первые 200 точек)
+# График временного ряда после 200-й точки
+y_full = generate_series(a, N=2000)
+y_plot = y_full[200:400]
 plt.figure(figsize=(10, 3))
-y_plot = generate_series(a, N=200)
-plt.plot(y_plot, label=f'y[i] = {a}·cos({b}·i) + {c}·sin({d}·i)', color='steelblue')
-plt.title('Участок временного ряда для обучения (первые 200 точек)')
+plt.plot(np.arange(200, 400), y_plot,
+         label=f'y[i] = {a}·cos({b}·i) + {c}·sin({d}·i)',
+         color='steelblue')
+plt.title('Участок временного ряда после 200-й точки')
 plt.xlabel('i')
 plt.ylabel('y[i]')
 plt.grid(True)
@@ -129,10 +115,10 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-# 6.2 График ошибки обучения
+# График ошибки обучения
 plt.figure(figsize=(8, 4))
 plt.plot(best_losses, color='darkorange')
-plt.title(f'Изменение ошибки (MSE) при обучении (a = {best_a})')
+plt.title(f'Ошибка (MSE) при обучении (a = {best_a})')
 plt.xlabel('Эпоха')
 plt.ylabel('MSE')
 plt.yscale('log')
@@ -140,7 +126,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-# 6.3 Таблица: обучение (первые 10)
+# Таблица обучения
 train_df = pd.DataFrame({
     'Эталонное значение': Y_train[:10],
     'Полученное значение': pred_train[:10],
@@ -149,7 +135,7 @@ train_df = pd.DataFrame({
 print("\n=== РЕЗУЛЬТАТЫ ОБУЧЕНИЯ (первые 10) ===")
 print(train_df.round(6).to_string(index=False))
 
-# 6.4 Таблица: прогнозирование (первые 10)
+# Таблица прогнозирования
 test_df = pd.DataFrame({
     'Эталонное значение': Y_test[:10],
     'Полученное значение': pred_test[:10],
@@ -158,17 +144,17 @@ test_df = pd.DataFrame({
 print("\n=== РЕЗУЛЬТАТЫ ПРОГНОЗИРОВАНИЯ (первые 10) ===")
 print(test_df.round(6).to_string(index=False))
 
-# 6.5 Метрики
+# Метрики
 train_mse = np.mean((Y_train - pred_train) ** 2)
 test_mse = np.mean((Y_test - pred_test) ** 2)
 train_mae = np.mean(np.abs(Y_train - pred_train))
 test_mae = np.mean(np.abs(Y_test - pred_test))
 
-print(f"\n📊 Оценка при a = {best_a}:")
+print(f"\nОценка при a = {best_a}:")
 print(f"Train → MSE: {train_mse:.8f}, MAE: {train_mae:.8f}")
 print(f"Test  → MSE: {test_mse:.8f}, MAE: {test_mae:.8f}")
 
-
+# Сравнение эталона и прогноза
 plt.figure(figsize=(10, 4))
 plt.plot(Y_test[:100], label='Эталон (тест)', color='blue')
 plt.plot(pred_test[:100], label='Прогноз (тест)', color='red', linestyle='--')
